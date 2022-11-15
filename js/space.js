@@ -6,10 +6,8 @@
 // Import three.js core
 import * as THREE from "../build/three.module.js";
 // Import pointer lock controls
-import {
-  PointerLockControls
-} from "../src/PointerLockControls.js";
-
+import { PointerLockControls } from "../src/PointerLockControls.js";
+import { GLTFLoader } from '../src/GLTFLoader.js';
 // Establish variables
 let camera, scene, renderer, controls, material;
 
@@ -184,34 +182,58 @@ function init() {
   // Insert completed floor into the scene
   scene.add(floor);
 
+  var mesh;
+  const loader = new GLTFLoader();
 
-  // First Image (red and purple glitch map)
-  // Load image as texture
-  const texture = new THREE.TextureLoader().load( '../../assets/glitch_map.jpg' );
-  // Immediately use the texture for material creation
-  const material = new THREE.MeshBasicMaterial( { map: texture, side: THREE.DoubleSide } );
-  // Create plane geometry
-  const geometry = new THREE.PlaneGeometry( 32, 16 );
-  // Apply image texture to plane geometry
-  const plane = new THREE.Mesh( geometry, material );
-  // Position plane geometry
-  plane.position.set(0 , 15 , -15);
-  // Place plane geometry
-  scene.add( plane );
+  loader.load( './assets/BLOB.glb',
+   function ( gltf ) {
 
-  // Second Image (Text with image and white background)
-  // Load image as texture
-  const texture2 = new THREE.TextureLoader().load( '../../assets/bouy.jpg' );
-  // immediately use the texture for material creation
-  const material2 = new THREE.MeshBasicMaterial( { map: texture2, side: THREE.DoubleSide } );
-  // Create plane geometry
-  const geometry2 = new THREE.PlaneGeometry( 200, 100 );
-  // Apply image texture to plane geometry
-  const plane2 = new THREE.Mesh( geometry2, material2 );
-  // Position plane geometry
-  plane2.position.set(0 , 100 , -200);
-  // Place plane geometry
-  scene.add( plane2 );
+     gltf.scene.traverse(function(child) {
+       if (child.isMesh) {
+         objects.push(child);
+         //child.material = newMaterial;
+       }
+     });
+     // set position and scale
+     mesh = gltf.scene;
+     mesh.position.set(0, 0, 0);
+     mesh.rotation.set(0, 0, 0);
+     mesh.scale.set(1, 1, 1); // <-- change this to (1, 1, 1) for photogrammetery model
+     // Add model to scene
+     scene.add(mesh);
+
+  }, undefined, function ( error ) {
+
+  	console.error( error );
+
+  } );
+  // // First Image (red and purple glitch map)
+  // // Load image as texture
+  // const texture = new THREE.TextureLoader().load( '../../assets/glitch_map.jpg' );
+  // // Immediately use the texture for material creation
+  // const material = new THREE.MeshBasicMaterial( { map: texture, side: THREE.DoubleSide } );
+  // // Create plane geometry
+  // const geometry = new THREE.PlaneGeometry( 32, 16 );
+  // // Apply image texture to plane geometry
+  // const plane = new THREE.Mesh( geometry, material );
+  // // Position plane geometry
+  // plane.position.set(0 , 15 , -15);
+  // // Place plane geometry
+  // scene.add( plane );
+  //
+  // // Second Image (Text with image and white background)
+  // // Load image as texture
+  // const texture2 = new THREE.TextureLoader().load( '../../assets/bouy.jpg' );
+  // // immediately use the texture for material creation
+  // const material2 = new THREE.MeshBasicMaterial( { map: texture2, side: THREE.DoubleSide } );
+  // // Create plane geometry
+  // const geometry2 = new THREE.PlaneGeometry( 200, 100 );
+  // // Apply image texture to plane geometry
+  // const plane2 = new THREE.Mesh( geometry2, material2 );
+  // // Position plane geometry
+  // plane2.position.set(0 , 100 , -200);
+  // // Place plane geometry
+  // scene.add( plane2 );
 
   // Define Rendered and html document placement
   renderer = new THREE.WebGLRenderer({

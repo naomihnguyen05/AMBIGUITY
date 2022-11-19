@@ -7,9 +7,25 @@
 import * as THREE from "../build/three.module.js";
 // Import pointer lock controls
 import { PointerLockControls } from "../src/PointerLockControls.js";
+// Import GLTF Loader
 import { GLTFLoader } from '../src/GLTFLoader.js';
+// Import Marching Cubes js files
+import { MarchingCubes } from "../src/MarchingCubes.js";
+import { ToonShader1, ToonShader2, ToonShaderHatching, ToonShaderDotted } from "../src/ToonShader.js";
 // Establish variables
 let camera, scene, renderer, controls, material;
+
+let light, pointLight, ambientLight;
+
+let materials, current_material;
+
+let effect, resolution;
+
+let effectController;
+
+let time = 0;
+
+const clock = new THREE.Clock();
 
 const objects = [];
 let raycaster;
@@ -32,7 +48,8 @@ animate();
 
 // Initialize the scene
 function init() {
-  // Establish the camera
+
+  // CAMERA
   camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
@@ -41,17 +58,74 @@ function init() {
   );
   camera.position.y = 10;
 
-  // Define basic scene parameters
+  // BASIC SCENE PARAMETERS
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
   scene.fog = new THREE.Fog(0xffffff, 0, 750);
 
-  // Define scene lighting
+  // // SCENE LIGHTING
   const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 0.75);
   light.position.set(0.5, 1, 0.75);
   scene.add(light);
 
-  // Define controls
+  // LIGHTS
+
+  light = new THREE.DirectionalLight( 0xffffff );
+  light.position.set( 0.5, 0.5, 1 );
+  scene.add( light );
+
+  pointLight = new THREE.PointLight( 0xff3300 );
+  pointLight.position.set( 0, 0, 100 );
+  scene.add( pointLight );
+
+  ambientLight = new THREE.AmbientLight( 0x080808 );
+  scene.add( ambientLight );
+
+
+  // // DIRECTIONAL LIGHT
+  // const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  // scene.add(directionalLight);
+  //
+  // // AMBIENT LIGHT
+  // const ambientLight = new THREE.AmbientLight(0x1A00FF, 0.99);
+  // scene.add(ambientLight);
+
+  // MATERIALS
+  materials = generateMaterials();
+  current_material = 'shiny';
+
+  // MARCHING CUBES
+
+  resolution = 28;
+
+  effect = new MarchingCubes( resolution, materials[ current_material ], true, true, 100000 );
+  effect.position.set( 0, 0, 0 );
+  effect.scale.set( 700, 700, 700 );
+
+  effect.enableUvs = false;
+  effect.enableColors = false;
+
+  scene.add( effect );
+
+  effectController = {
+
+  material: 'shiny',
+
+  speed: 1.0,
+  numBlobs: 10,
+  resolution: 28,
+  isolation: 80,
+
+  floor: true,
+  wallx: false,
+  wallz: false,
+
+  dummy: function () {}
+
+};
+
+
+  // CONTROLS
   controls = new PointerLockControls(camera, document.body);
 
   // Identify the html divs for the overlays
@@ -182,10 +256,11 @@ function init() {
   // Insert completed floor into the scene
   scene.add(floor);
 
-  var mesh;
+  // Insert GLTF or GLB Models
+  var mesh, mesh2;
   const loader = new GLTFLoader();
 
-  loader.load( './assets/BLOB.glb',
+  loader.load( './assets/blob.glb',
    function ( gltf ) {
 
      gltf.scene.traverse(function(child) {
@@ -196,9 +271,9 @@ function init() {
      });
      // set position and scale
      mesh = gltf.scene;
-     mesh.position.set(0, 0, 0);
+     mesh.position.set(5, 20, 18);
      mesh.rotation.set(0, 0, 0);
-     mesh.scale.set(1, 1, 1); // <-- change this to (1, 1, 1) for photogrammetery model
+     mesh.scale.set(2, 2, 2); // <-- change this to (1, 1, 1) for photogrammetery model
      // Add model to scene
      scene.add(mesh);
 
@@ -207,6 +282,33 @@ function init() {
   	console.error( error );
 
   } );
+
+  const loader2 = new GLTFLoader();
+
+  loader.load( './assets/blob2.glb',
+   function ( gltf ) {
+
+     gltf.scene.traverse(function(child) {
+       if (child.isMesh) {
+         objects.push(child);
+         //child.material = newMaterial;
+       }
+     });
+     // set position and scale
+     mesh2 = gltf.scene;
+     mesh2.position.set(7, 50, 1);
+     mesh2.rotation.set(0, 0, 0);
+     mesh2.scale.set(5, 5, 5); // <-- change this to (1, 1, 1) for photogrammetery model
+     // Add model to scene
+     scene.add(mesh2);
+
+  }, undefined, function ( error ) {
+
+    console.error( error );
+
+  } );
+
+
   // // First Image (red and purple glitch map)
   // // Load image as texture
   // const texture = new THREE.TextureLoader().load( '../../assets/glitch_map.jpg' );
@@ -235,6 +337,76 @@ function init() {
   // // Place plane geometry
   // scene.add( plane2 );
 
+  // this controls content of marching cubes voxel field
+
+		function updateCubes( object, time, numblobs, floor, wallx, wallz ) {
+
+			object.reset();
+
+			// fill the field with some metaballs
+
+			const rainbow = [
+				new THREE.Color( 0xff0000 ),
+				new THREE.Color( 0xff7f00 ),
+				new THREE.Color( 0xffff00 ),
+				new THREE.Color( 0x00ff00 ),
+				new THREE.Color( 0x0000ff ),
+				new THREE.Color( 0x4b0082 ),
+				new THREE.Color( 0x9400d3 )
+			];
+			const subtract = 12;
+			const strength = 1.2 / ( ( Math.sqrt( numblobs ) - 1 ) / 4 + 1 );
+
+			for ( let i = 0; i < numblobs; i ++ ) {
+
+				const ballx = Math.sin( i + 1.26 * time * ( 1.03 + 0.5 * Math.cos( 0.21 * i ) ) ) * 0.27 + 0.5;
+				const bally = Math.abs( Math.cos( i + 1.12 * time * Math.cos( 1.22 + 0.1424 * i ) ) ) * 0.77; // dip into the floor
+				const ballz = Math.cos( i + 1.32 * time * 0.1 * Math.sin( ( 0.92 + 0.53 * i ) ) ) * 0.27 + 0.5;
+
+				if ( current_material === 'multiColors' ) {
+
+					object.addBall( ballx, bally, ballz, strength, subtract, rainbow[ i % 7 ] );
+
+				} else {
+
+					object.addBall( ballx, bally, ballz, strength, subtract );
+
+				}
+
+			}
+
+			if ( floor ) object.addPlaneY( 2, 12 );
+			if ( wallz ) object.addPlaneZ( 2, 12 );
+			if ( wallx ) object.addPlaneX( 2, 12 );
+
+			object.update();
+
+		}
+
+    function render() {
+
+    const delta = clock.getDelta();
+
+    time += delta * effectController.speed * 0.5;
+
+    // marching cubes
+
+    if ( effectController.resolution !== resolution ) {
+
+      resolution = effectController.resolution;
+      effect.init( Math.floor( resolution ) );
+
+    }
+
+    if ( effectController.isolation !== effect.isolation ) {
+
+      effect.isolation = effectController.isolation;
+
+    }
+
+    updateCubes( effect, time, effectController.numBlobs, effectController.floor, effectController.wallx, effectController.wallz );
+  }
+
   // Define Rendered and html document placement
   renderer = new THREE.WebGLRenderer({
     antialias: true
@@ -255,9 +427,65 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+
+function generateMaterials() {
+
+  // environment map
+
+  const path = '../src/stars';
+  const format = '.jpg';
+  const urls = [
+    path + 'px' + format, path + 'nx' + format,
+    path + 'py' + format, path + 'ny' + format,
+    path + 'pz' + format, path + 'nz' + format
+  ];
+
+  const cubeTextureLoader = new THREE.CubeTextureLoader();
+
+  const reflectionCube = cubeTextureLoader.load( urls );
+  const refractionCube = cubeTextureLoader.load( urls );
+  refractionCube.mapping = THREE.CubeRefractionMapping;
+
+  // toons
+
+  const toonMaterial1 = createShaderMaterial( ToonShader1, light, ambientLight );
+  const toonMaterial2 = createShaderMaterial( ToonShader2, light, ambientLight );
+  const hatchingMaterial = createShaderMaterial( ToonShaderHatching, light, ambientLight );
+  const dottedMaterial = createShaderMaterial( ToonShaderDotted, light, ambientLight );
+
+
+  const materials = {
+    'shiny': new THREE.MeshStandardMaterial( { color: 0x550000, envMap: reflectionCube, roughness: 0.1, metalness: 1.0 } ),
+  };
+
+  return materials;
+
+}
+
+function createShaderMaterial( shader, light, ambientLight ) {
+
+  const u = THREE.UniformsUtils.clone( shader.uniforms );
+
+  const vs = shader.vertexShader;
+  const fs = shader.fragmentShader;
+
+  const material = new THREE.ShaderMaterial( { uniforms: u, vertexShader: vs, fragmentShader: fs } );
+
+  material.uniforms[ 'uDirLightPos' ].value = light.position;
+  material.uniforms[ 'uDirLightColor' ].value = light.color;
+
+  material.uniforms[ 'uAmbientLightColor' ].value = ambientLight.color;
+
+  return material;
+
+}
+
+
 // Animation function
 function animate() {
   requestAnimationFrame(animate);
+
+  render();
 
   const time = performance.now();
 

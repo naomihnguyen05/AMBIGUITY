@@ -1,8 +1,3 @@
-// Art 109 Three.js Demo Site
-// client7.js
-// A three.js scene which uses planes and texture loading to generate a scene with images which can be traversed with basic WASD and mouse controls, this scene is full screen with an overlay.
-
-// Import required source code
 // Import three.js core
 import * as THREE from "../build/three.module.js";
 // Import pointer lock controls
@@ -11,8 +6,10 @@ import { PointerLockControls } from "../src/PointerLockControls.js";
 import { GLTFLoader } from '../src/GLTFLoader.js';
 // Import Marching Cubes js files
 import { MarchingCubes } from "../src/MarchingCubes.js";
-// import { GUI } from '../src/lil-gui.module.min.js';
+import { GUI } from '../src/lil-gui.module.min.js';
 // Establish variables
+let container;
+
 let camera, scene, renderer, controls, material;
 
 let light, pointLight, ambientLight;
@@ -49,6 +46,8 @@ animate();
 // Initialize the scene
 function init() {
 
+  container = document.getElementById( 'container' );
+
   // CAMERA
   camera = new THREE.PerspectiveCamera(
     75,
@@ -64,34 +63,107 @@ function init() {
   // scene.fog = new THREE.Fog(0xffffff, 0, 750);
 
   // // SCENE LIGHTING
-  const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 0.75);
-  light.position.set(0.5, 1, 0.75);
-  scene.add(light);
-
-  // LIGHTS
-
-  // light = new THREE.DirectionalLight( 0xffffff );
-  // light.position.set( 0.5, 0.5, 1 );
-  // scene.add( light );
-  //
-  // pointLight = new THREE.PointLight( 0xff3300 );
-  // pointLight.position.set( 0, 0, 100 );
-  // scene.add( pointLight );
-  //
-  // ambientLight = new THREE.AmbientLight( 0x080808 );
-  // scene.add( ambientLight );
-
+  // const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 0.75);
+  // light.position.set(0.5, 1, 0.75);
+  // scene.add(light);
 
   // DIRECTIONAL LIGHT
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  const directionalLight = new THREE.DirectionalLight(0xE70005, 0.9);
+  directionalLight.position.set( 0.5, 0.5, 1 );
   scene.add(directionalLight);
 
+  // POINT LIGHT
+  pointLight = new THREE.PointLight( 0xE70005 );
+  // pointLight.intensity = 10;
+  pointLight.position.set( 0, 0, 100 );
+  scene.add( pointLight );
+
   // AMBIENT LIGHT
-  const ambientLight = new THREE.AmbientLight(0x1A00FF, 0.99);
+  const ambientLight = new THREE.AmbientLight(0x000000, 0.99);
   scene.add(ambientLight);
 
   // CONTROLS
   controls = new PointerLockControls(camera, document.body);
+
+  // MATERIALS
+  materials = generateMaterials();
+  current_material = 'matte';
+
+  // MARCHING CUBES
+
+  resolution = 28;
+
+  effect = new MarchingCubes( resolution, materials[ current_material ], true, true, 100000 );
+  effect.position.set( 0, 0, 0 );
+  effect.scale.set( 2100, 2100, 2100 );
+
+  effect.enableUvs = false;
+  effect.enableColors = false;
+
+  scene.add( effect );
+
+  // GUI
+  setupGui();
+
+  function generateMaterials() {
+    const materials = {
+      'matte': new THREE.MeshPhongMaterial( { specular: 0xE70005, shininess: 1 } ),
+    };
+    return materials;
+  }
+
+  function createShaderMaterial( shader, light, ambientLight ) {
+
+  const u = THREE.UniformsUtils.clone( shader.uniforms );
+
+  const vs = shader.vertexShader;
+  const fs = shader.fragmentShader;
+
+  const material = new THREE.ShaderMaterial( { uniforms: u, vertexShader: vs, fragmentShader: fs } );
+
+  material.uniforms[ 'uDirLightPos' ].value = light.position;
+  material.uniforms[ 'uDirLightColor' ].value = light.color;
+
+  material.uniforms[ 'uAmbientLightColor' ].value = ambientLight.color;
+
+  return material;
+}
+
+function setupGui() {
+
+  const createHandler = function ( id ) {
+
+    return function () {
+
+      current_material = id;
+
+      effect.material = materials[ id ];
+      effect.enableUvs = ( current_material === 'textured' ) ? true : false;
+      effect.enableColors = ( current_material === 'colors' || current_material === 'multiColors' ) ? true : false;
+
+    };
+
+  };
+
+  effectController = {
+
+    material: 'matte',
+
+    speed: 5.0,
+    numBlobs: 20,
+    resolution: 50,
+    isolation: 500,
+
+    floor: true,
+    wallx: false,
+    wallz: false,
+
+    dummy: function () {}
+
+    };
+  }
+
+
 
   // Identify the html divs for the overlays
   const blocker = document.getElementById("blocker");
@@ -180,16 +252,6 @@ function init() {
     10
   );
 
-  // Generate the ground
-  // let floorGeometry = new THREE.PlaneGeometry(2000, 2000, 100, 100);
-  // floorGeometry.rotateX(-Math.PI / 2);
-  //
-  // const floorMaterial = new THREE.MeshBasicMaterial({color: 0xffffff });
-  // const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  //
-  // // Insert completed floor into the scene
-  // scene.add(floor);
-
   // Insert GLTF or GLB Models
   var mesh, mesh2, mesh3, mesh4, mesh5, mesh6, mesh7;
   const loader = new GLTFLoader();
@@ -200,7 +262,6 @@ function init() {
      gltf.scene.traverse(function(child) {
        if (child.isMesh) {
          objects.push(child);
-         //child.material = newMaterial;
        }
      });
      // set position and scale
@@ -225,12 +286,11 @@ function init() {
      gltf.scene.traverse(function(child) {
        if (child.isMesh) {
          objects.push(child);
-         //child.material = newMaterial;
        }
      });
      // set position and scale
      mesh2 = gltf.scene;
-     mesh2.position.set(7, 50, 1);
+     mesh2.position.set(7, 100, 1);
      mesh2.rotation.set(0, 0, 0);
      mesh2.scale.set(10, 10, 10); // <-- change this to (1, 1, 1) for photogrammetery model
      // Add model to scene
@@ -250,7 +310,6 @@ function init() {
      gltf.scene.traverse(function(child) {
        if (child.isMesh) {
          objects.push(child);
-         //child.material = newMaterial;
        }
      });
      // set position and scale
@@ -275,7 +334,6 @@ function init() {
      gltf.scene.traverse(function(child) {
        if (child.isMesh) {
          objects.push(child);
-         //child.material = newMaterial;
        }
      });
      // set position and scale
@@ -301,7 +359,6 @@ function init() {
      gltf.scene.traverse(function(child) {
        if (child.isMesh) {
          objects.push(child);
-         //child.material = newMaterial;
        }
      });
      // set position and scale
@@ -326,7 +383,6 @@ function init() {
      gltf.scene.traverse(function(child) {
        if (child.isMesh) {
          objects.push(child);
-         //child.material = newMaterial;
        }
      });
      // set position and scale
@@ -345,13 +401,12 @@ function init() {
 
   const loader7 = new GLTFLoader();
 
-  loader.load( './assets/blob5.glb',
+  loader.load( './assets/blob4.glb',
    function ( gltf ) {
 
      gltf.scene.traverse(function(child) {
        if (child.isMesh) {
          objects.push(child);
-         //child.material = newMaterial;
        }
      });
      // set position and scale
@@ -370,33 +425,32 @@ function init() {
 
 
 
-  // First Image (red and purple glitch map)
-  // Load image as texture
-  const texture = new THREE.TextureLoader().load( '../assets/reality.jpg' );
-  // Immediately use the texture for material creation
-  const material = new THREE.MeshBasicMaterial( { map: texture, side: THREE.DoubleSide } );
-  // Create plane geometry
-  const geometry = new THREE.PlaneGeometry( 500, 500);
-  // Apply image texture to plane geometry
-  const plane = new THREE.Mesh( geometry, material );
-  // Position plane geometry
-  plane.position.set(0 , 15 , -300);
-  // Place plane geometry
-  scene.add( plane );
-  //
-  // // Second Image (Text with image and white background)
+  // // First Image (red and purple glitch map)
   // // Load image as texture
-  // const texture2 = new THREE.TextureLoader().load( '../../assets/bouy.jpg' );
-  // // immediately use the texture for material creation
-  // const material2 = new THREE.MeshBasicMaterial( { map: texture2, side: THREE.DoubleSide } );
+  // const texture = new THREE.TextureLoader().load( '../assets/reality.jpg' );
+  // // Immediately use the texture for material creation
+  // const material = new THREE.MeshBasicMaterial( { map: texture, side: THREE.DoubleSide } );
   // // Create plane geometry
-  // const geometry2 = new THREE.PlaneGeometry( 200, 100 );
+  // const geometry = new THREE.PlaneGeometry( 500, 500);
   // // Apply image texture to plane geometry
-  // const plane2 = new THREE.Mesh( geometry2, material2 );
+  // const plane = new THREE.Mesh( geometry, material );
   // // Position plane geometry
-  // plane2.position.set(0 , 100 , -200);
+  // plane.position.set(0 , 15 , -300);
   // // Place plane geometry
-  // scene.add( plane2 );
+  // scene.add( plane );
+
+  var planes = [];
+  	var planeImages = ["../assets/text-01.png"];
+  	var planeGeometry = new THREE.PlaneGeometry(842, 596);
+  	for(var i = 0; i < planeImages.length; i++) {
+  		var planeMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load(planeImages[i]), transparent: true, side: THREE.DoubleSide }); // NOTE: specify "transparent: true"
+  		planes[i] = new THREE.Mesh(planeGeometry, planeMaterial);
+  		planes[i].position.x = 1 * i * (i % 2 == 0 ? -1 : 1);
+  		planes[i].position.y = 2 * i * (i % 2 == 0 ? 1 : -1) * 0.25;
+  		planes[i].position.z = -2;
+      planes[i].position.set(0 , 15 , -300);
+  		scene.add(planes[i]);
+  	}
 
   // Define Rendered and html document placement
   renderer = new THREE.WebGLRenderer({
@@ -406,6 +460,7 @@ function init() {
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
+  // container.appendChild( renderer.domElement )
 
   // Listen for window resizing
   window.addEventListener("resize", onWindowResize);
@@ -418,7 +473,49 @@ function onWindowResize() {
 
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+function updateCubes( object, time, numblobs, floor ) {
 
+object.reset();
+
+// fill the field with some metaballs
+
+const rainbow = [
+  new THREE.Color( 0xff0000 ),
+  new THREE.Color( 0xff7f00 ),
+  new THREE.Color( 0xffff00 ),
+  new THREE.Color( 0x00ff00 ),
+  new THREE.Color( 0x0000ff ),
+  new THREE.Color( 0x4b0082 ),
+  new THREE.Color( 0x9400d3 )
+];
+const subtract = 12;
+const strength = 1.2 / ( ( Math.sqrt( numblobs ) - 1 ) / 4 + 1 );
+
+for ( let i = 0; i < numblobs; i ++ ) {
+
+  const ballx = Math.sin( i + 1.26 * time * ( 1.03 + 0.5 * Math.cos( 0.21 * i ) ) ) * 0.27 + 0.5;
+  const bally = Math.abs( Math.cos( i + 1.12 * time * Math.cos( 1.22 + 0.1424 * i ) ) ) * 0.77; // dip into the floor
+  const ballz = Math.cos( i + 1.32 * time * 0.1 * Math.sin( ( 0.92 + 0.53 * i ) ) ) * 0.27 + 0.5;
+
+  if ( current_material === 'multiColors' ) {
+
+    object.addBall( ballx, bally, ballz, strength, subtract, rainbow[ i % 7 ] );
+
+  } else {
+
+    object.addBall( ballx, bally, ballz, strength, subtract );
+
+  }
+
+}
+
+// if ( floor ) object.addPlaneY( 2, 12 );
+// if ( wallz ) object.addPlaneZ( 2, 12 );
+// if ( wallx ) object.addPlaneX( 2, 12 );
+
+object.update();
+
+}
 
 // Animation function
 function animate() {
@@ -473,7 +570,31 @@ function animate() {
 
 }
 
-function render() {
+    function render() {
 
-renderer.render(scene, camera);
+			const delta = clock.getDelta();
+
+			time += delta * effectController.speed * 0.5;
+
+			// marching cubes
+
+			if ( effectController.resolution !== resolution ) {
+
+				resolution = effectController.resolution;
+				effect.init( Math.floor( resolution ) );
+
+			}
+
+			if ( effectController.isolation !== effect.isolation ) {
+
+				effect.isolation = effectController.isolation;
+
+			}
+
+			updateCubes( effect, time, effectController.numBlobs, effectController.floor, effectController.wallx, effectController.wallz );
+
+  // render
+
+    renderer.render(scene, camera);
+
 }

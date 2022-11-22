@@ -1,5 +1,5 @@
 // Import three.js core
-import * as THREE from "build/three.module.js";
+import * as THREE from 'three';
 // Import pointer lock controls
 import { PointerLockControls } from "../src/PointerLockControls.js";
 // Import GLTF Loader
@@ -13,6 +13,8 @@ let container;
 let camera, scene, renderer, controls, material;
 
 let light, pointLight, ambientLight;
+
+let soundBack;
 
 let materials, current_material;
 
@@ -42,6 +44,12 @@ const color = new THREE.Color();
 // Initialization and animation function calls
 init();
 animate();
+
+function preload() {
+  // AUDIO
+soundBack = new Howl({ src: ['./assets/spaceambient.mp3'], loop: true, volume: 2});
+soundBack.play();
+}
 
 // Initialize the scene
 function init() {

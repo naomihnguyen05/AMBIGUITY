@@ -45,12 +45,6 @@ const color = new THREE.Color();
 init();
 animate();
 
-function preload() {
-  // AUDIO
-soundBack = new Howl({ src: ['./assets/spaceambient.mp3'], loop: true, volume: 2});
-soundBack.play();
-}
-
 // Initialize the scene
 function init() {
 
@@ -89,6 +83,10 @@ function init() {
   // AMBIENT LIGHT
   const ambientLight = new THREE.AmbientLight(0x000000, 0.99);
   scene.add(ambientLight);
+
+  // AUDIO
+  soundBack = new Howl({ src: ['./assets/spaceambient.mp3'], loop: true, volume: 1});
+  soundBack.play();
 
   // CONTROLS
   controls = new PointerLockControls(camera, document.body);

@@ -446,7 +446,7 @@ function setupGui() {
   // scene.add( plane );
 
   var planes = [];
-  	var planeImages = ["./assets/text-01.png"];
+  	var planeImages = ["./assets/artiststatement.png"];
   	var planeGeometry = new THREE.PlaneGeometry(842, 596);
   	for(var i = 0; i < planeImages.length; i++) {
   		var planeMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load(planeImages[i]), transparent: true, side: THREE.DoubleSide }); // NOTE: specify "transparent: true"

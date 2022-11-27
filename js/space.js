@@ -262,7 +262,7 @@ function setupGui() {
   var mesh, mesh2, mesh3, mesh4, mesh5, mesh6, mesh7;
   const loader = new GLTFLoader();
 
-  loader.load( './assets/blob.glb',
+  loader.load( './assets/blob1.glb',
    function ( gltf ) {
 
      gltf.scene.traverse(function(child) {
@@ -359,7 +359,7 @@ function setupGui() {
 
   const loader5 = new GLTFLoader();
 
-  loader.load( './assets/blob.glb',
+  loader.load( './assets/blob1.glb',
    function ( gltf ) {
 
      gltf.scene.traverse(function(child) {
